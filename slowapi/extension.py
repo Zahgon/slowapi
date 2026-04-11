@@ -78,13 +78,7 @@ def _rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> Re
     Build a simple JSON response that includes the details of the rate limit
     that was hit. If no limit is hit, the countdown is added to headers.
     """
-    response = JSONResponse(
-        {"error": f"Rate limit exceeded: {exc.detail}"}, status_code=429
-    )
-    response = request.app.state.limiter._inject_headers(
-        response, request.state.view_rate_limit
-    )
-    return response
+    pass
 
 
 class Limiter:
@@ -228,7 +222,7 @@ class Limiter:
 
         class BlackHoleHandler(logging.StreamHandler):
             def emit(*_):
-                return
+                pass
 
         self.logger.addHandler(BlackHoleHandler())
 
@@ -330,103 +324,34 @@ class Limiter:
         """
         Starlette startup event handler that links the app with the Limiter instance.
         """
-        app.state.limiter = self  # type: ignore
-        app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
+        pass
 
     def get_app_config(self, key: str, default_value: T = None) -> T:
         """
         Place holder until we find a better way to load config from app
         """
-        return (
-            self.app_config(key, default=default_value, cast=type(default_value))
-            if default_value
-            else self.app_config(key, default=default_value)
-        )
+        pass
 
     def __should_check_backend(self) -> bool:
-        if self.__check_backend_count > MAX_BACKEND_CHECKS:
-            self.__check_backend_count = 0
-        if time.time() - self.__last_check_backend > pow(2, self.__check_backend_count):
-            self.__last_check_backend = time.time()
-            self.__check_backend_count += 1
-            return True
-        return False
+        pass
 
     def reset(self) -> None:
         """
         resets the storage if it supports being reset
         """
-        try:
-            self._storage.reset()
-            self.logger.info("Storage has been reset and all limits cleared")
-        except NotImplementedError:
-            self.logger.warning("This storage type does not support being reset")
+        pass
 
     @property
     def limiter(self) -> RateLimiter:
         """
         The backend that keeps track of consumption of endpoints vs limits
         """
-        if self._storage_dead and self._in_memory_fallback_enabled:
-            assert (
-                self._fallback_limiter
-            ), "Fallback limiter is needed when in memory fallback is enabled"
-            return self._fallback_limiter
-        else:
-            return self._limiter
+        pass
 
     def _inject_headers(
         self, response: Response, current_limit: Tuple[RateLimitItem, List[str]]
     ) -> Response:
-        if self.enabled and self._headers_enabled and current_limit is not None:
-            if not isinstance(response, Response):
-                raise Exception(
-                    "parameter `response` must be an instance of starlette.responses.Response"
-                )
-            try:
-                window_stats: Tuple[int, int] = self.limiter.get_window_stats(
-                    current_limit[0], *current_limit[1]
-                )
-                reset_in = 1 + window_stats[0]
-                response.headers.append(
-                    self._header_mapping[HEADERS.LIMIT], str(current_limit[0].amount)
-                )
-                response.headers.append(
-                    self._header_mapping[HEADERS.REMAINING], str(window_stats[1])
-                )
-                response.headers.append(
-                    self._header_mapping[HEADERS.RESET], str(reset_in)
-                )
-
-                # response may have an existing retry after
-                existing_retry_after_header = response.headers.get("Retry-After")
-
-                if existing_retry_after_header is not None:
-                    reset_in = max(
-                        self._determine_retry_time(existing_retry_after_header),
-                        reset_in,
-                    )
-
-                response.headers[self._header_mapping[HEADERS.RETRY_AFTER]] = (
-                    formatdate(reset_in)
-                    if self._retry_after == "http-date"
-                    else str(int(reset_in - time.time()))
-                )
-            except:
-                if self._in_memory_fallback and not self._storage_dead:
-                    self.logger.warning(
-                        "Rate limit storage unreachable - falling back to"
-                        " in-memory storage"
-                    )
-                    self._storage_dead = True
-                    response = self._inject_headers(response, current_limit)
-                if self._swallow_errors:
-                    self.logger.exception(
-                        "Failed to update rate limit headers. Swallowing error"
-                    )
-                else:
-                    raise
-        return response
+        pass
 
     def _inject_asgi_headers(
         self, headers: MutableHeaders, current_limit: Tuple[RateLimitItem, List[str]]
@@ -438,115 +363,15 @@ class Limiter:
         Basically the same as _inject_headers, but without access to the Response object.
         -> supports ASGI Middlewares.
         """
-        if self.enabled and self._headers_enabled and current_limit is not None:
-            try:
-                window_stats: Tuple[int, int] = self.limiter.get_window_stats(
-                    current_limit[0], *current_limit[1]
-                )
-                reset_in = 1 + window_stats[0]
-                headers[self._header_mapping[HEADERS.LIMIT]] = str(
-                    current_limit[0].amount
-                )
-                headers[self._header_mapping[HEADERS.REMAINING]] = str(window_stats[1])
-                headers[self._header_mapping[HEADERS.RESET]] = str(reset_in)
-
-                # response may have an existing retry after
-                existing_retry_after_header = headers.get("Retry-After")
-
-                if existing_retry_after_header is not None:
-                    reset_in = max(
-                        self._determine_retry_time(existing_retry_after_header),
-                        reset_in,
-                    )
-
-                headers[self._header_mapping[HEADERS.RETRY_AFTER]] = (
-                    formatdate(reset_in)
-                    if self._retry_after == "http-date"
-                    else str(int(reset_in - time.time()))
-                )
-            except Exception:
-                if self._in_memory_fallback and not self._storage_dead:
-                    self.logger.warning(
-                        "Rate limit storage unreachable - falling back to"
-                        " in-memory storage"
-                    )
-                    self._storage_dead = True
-                    headers = self._inject_asgi_headers(headers, current_limit)
-                if self._swallow_errors:
-                    self.logger.exception(
-                        "Failed to update rate limit headers. Swallowing error"
-                    )
-                else:
-                    raise
-        return headers
+        pass
 
     def __evaluate_limits(
         self, request: Request, endpoint: str, limits: List[Limit]
     ) -> None:
-        failed_limit = None
-        limit_for_header = None
-        for lim in limits:
-            limit_scope = lim.scope or endpoint
-            if lim.is_exempt(request):
-                continue
-            if lim.methods is not None and request.method.lower() not in lim.methods:
-                continue
-            if lim.per_method:
-                limit_scope += ":%s" % request.method
-
-            if "request" in inspect.signature(lim.key_func).parameters.keys():
-                limit_key = lim.key_func(request)
-            else:
-                limit_key = lim.key_func()
-
-            args = [limit_key, limit_scope]
-            if all(args):
-                if self._key_prefix:
-                    args = [self._key_prefix] + args
-                if not limit_for_header or lim.limit < limit_for_header[0]:
-                    limit_for_header = (lim.limit, args)
-
-                cost = lim.cost(request) if callable(lim.cost) else lim.cost
-                if not self.limiter.hit(lim.limit, *args, cost=cost):
-                    self.logger.warning(
-                        "ratelimit %s (%s) exceeded at endpoint: %s",
-                        lim.limit,
-                        limit_key,
-                        limit_scope,
-                    )
-                    failed_limit = lim
-                    limit_for_header = (lim.limit, args)
-                    break
-            else:
-                self.logger.error(
-                    "Skipping limit: %s. Empty value found in parameters.", lim.limit
-                )
-                continue
-        # keep track of which limit was hit, to be picked up for the response header
-        request.state.view_rate_limit = limit_for_header
-
-        if failed_limit:
-            raise RateLimitExceeded(failed_limit)
+        pass
 
     def _determine_retry_time(self, retry_header_value) -> int:
-        try:
-            retry_after_date: Optional[datetime] = parsedate_to_datetime(
-                retry_header_value
-            )
-        except (TypeError, ValueError):
-            retry_after_date = None
-
-        if retry_after_date is not None:
-            return int(time.mktime(retry_after_date.timetuple()))
-
-        try:
-            retry_after_int: int = int(retry_header_value)
-        except TypeError:
-            raise ValueError(
-                "Retry-After Header does not meet RFC2616 - value is not of http-date or int type."
-            )
-
-        return int(time.time() + retry_after_int)
+        pass
 
     def _check_request_limit(
         self,
@@ -557,93 +382,7 @@ class Limiter:
         """
         Determine if the request is within limits
         """
-        endpoint_url = request["path"] or ""
-        view_func = endpoint_func
-
-        endpoint_func_name = (
-            f"{view_func.__module__}.{view_func.__name__}" if view_func else ""
-        )
-        _endpoint_key = endpoint_url if self._key_style == "url" else endpoint_func_name
-        # cases where we don't need to check the limits
-        if (
-            not _endpoint_key
-            or not self.enabled
-            # or we are sending a static file
-            # or view_func == current_app.send_static_file
-            or endpoint_func_name in self._exempt_routes
-            or any(fn() for fn in self._request_filters)
-        ):
-            return
-        limits: List[Limit] = []
-        dynamic_limits: List[Limit] = []
-
-        if not in_middleware:
-            limits = (
-                self._route_limits[endpoint_func_name]
-                if endpoint_func_name in self._route_limits
-                else []
-            )
-            dynamic_limits = []
-            if endpoint_func_name in self._dynamic_route_limits:
-                for lim in self._dynamic_route_limits[endpoint_func_name]:
-                    try:
-                        dynamic_limits.extend(list(lim.with_request(request)))
-                    except ValueError as e:
-                        self.logger.error(
-                            "failed to load ratelimit for view function %s (%s)",
-                            endpoint_func_name,
-                            e,
-                        )
-
-        try:
-            all_limits: List[Limit] = []
-            if self._storage_dead and self._fallback_limiter:
-                if in_middleware and endpoint_func_name in self.__marked_for_limiting:
-                    pass
-                else:
-                    if self.__should_check_backend() and self._storage.check():
-                        self.logger.info("Rate limit storage recovered")
-                        self._storage_dead = False
-                        self.__check_backend_count = 0
-                    else:
-                        all_limits = list(itertools.chain(*self._in_memory_fallback))
-            if not all_limits:
-                route_limits: List[Limit] = limits + dynamic_limits
-                all_limits = (
-                    list(itertools.chain(*self._application_limits))
-                    if in_middleware
-                    else []
-                )
-                all_limits += route_limits
-                combined_defaults = all(
-                    not limit.override_defaults for limit in route_limits
-                )
-                if (
-                    not route_limits
-                    and not (
-                        in_middleware
-                        and endpoint_func_name in self.__marked_for_limiting
-                    )
-                    or combined_defaults
-                ):
-                    all_limits += list(itertools.chain(*self._default_limits))
-            # actually check the limits, so far we've only computed the list of limits to check
-            self.__evaluate_limits(request, _endpoint_key, all_limits)
-        except Exception as e:  # no qa
-            if isinstance(e, RateLimitExceeded):
-                raise
-            if self._in_memory_fallback_enabled and not self._storage_dead:
-                self.logger.warning(
-                    "Rate limit storage unreachable - falling back to"
-                    " in-memory storage"
-                )
-                self._storage_dead = True
-                self._check_request_limit(request, endpoint_func, in_middleware)
-            else:
-                if self._swallow_errors:
-                    self.logger.exception("Failed to rate limit. Swallowing error")
-                else:
-                    raise
+        pass
 
     def __limit_decorator(
         self,
@@ -658,128 +397,7 @@ class Limiter:
         cost: Union[int, Callable[..., int]] = 1,
         override_defaults: bool = True,
     ) -> Callable[..., Any]:
-        _scope = scope if shared else None
-
-        def decorator(func: Callable[..., Response]):
-            keyfunc = key_func or self._key_func
-            name = f"{func.__module__}.{func.__name__}"
-            dynamic_limit = None
-            static_limits: List[Limit] = []
-            if callable(limit_value):
-                dynamic_limit = LimitGroup(
-                    limit_value,
-                    keyfunc,
-                    _scope,
-                    per_method,
-                    methods,
-                    error_message,
-                    exempt_when,
-                    cost,
-                    override_defaults,
-                )
-            else:
-                try:
-                    static_limits = list(
-                        LimitGroup(
-                            limit_value,
-                            keyfunc,
-                            _scope,
-                            per_method,
-                            methods,
-                            error_message,
-                            exempt_when,
-                            cost,
-                            override_defaults,
-                        )
-                    )
-                except ValueError as e:
-                    self.logger.error(
-                        "Failed to configure throttling for %s (%s)",
-                        name,
-                        e,
-                    )
-            self.__marked_for_limiting.setdefault(name, []).append(func)
-            if dynamic_limit:
-                self._dynamic_route_limits.setdefault(name, []).append(dynamic_limit)
-            else:
-                self._route_limits.setdefault(name, []).extend(static_limits)
-
-            sig = inspect.signature(func)
-            for idx, parameter in enumerate(sig.parameters.values()):
-                if parameter.name == "request" or parameter.name == "websocket":
-                    break
-            else:
-                raise Exception(
-                    f'No "request" or "websocket" argument on function "{func}"'
-                )
-
-            if asyncio.iscoroutinefunction(func):
-                # Handle async request/response functions.
-                @functools.wraps(func)
-                async def async_wrapper(*args: Any, **kwargs: Any) -> Response:
-                    # get the request object from the decorated endpoint function
-                    if self.enabled:
-                        request = kwargs.get("request", args[idx] if args else None)
-                        if not isinstance(request, Request):
-                            raise Exception(
-                                "parameter `request` must be an instance of starlette.requests.Request"
-                            )
-
-                        if self._auto_check and not getattr(
-                            request.state, "_rate_limiting_complete", False
-                        ):
-                            self._check_request_limit(request, func, False)
-                            request.state._rate_limiting_complete = True
-                    response = await func(*args, **kwargs)  # type: ignore
-                    if self.enabled:
-                        if not isinstance(response, Response):
-                            # get the response object from the decorated endpoint function
-                            self._inject_headers(
-                                kwargs.get("response"),  # type: ignore
-                                request.state.view_rate_limit,
-                            )
-                        else:
-                            self._inject_headers(
-                                response, request.state.view_rate_limit
-                            )
-                    return response
-
-                return async_wrapper
-
-            else:
-                # Handle sync request/response functions.
-                @functools.wraps(func)
-                def sync_wrapper(*args: Any, **kwargs: Any) -> Response:
-                    # get the request object from the decorated endpoint function
-                    if self.enabled:
-                        request = kwargs.get("request", args[idx] if args else None)
-                        if not isinstance(request, Request):
-                            raise Exception(
-                                "parameter `request` must be an instance of starlette.requests.Request"
-                            )
-
-                        if self._auto_check and not getattr(
-                            request.state, "_rate_limiting_complete", False
-                        ):
-                            self._check_request_limit(request, func, False)
-                            request.state._rate_limiting_complete = True
-                    response = func(*args, **kwargs)
-                    if self.enabled:
-                        if not isinstance(response, Response):
-                            # get the response object from the decorated endpoint function
-                            self._inject_headers(
-                                kwargs.get("response"),
-                                request.state.view_rate_limit,  # type: ignore
-                            )
-                        else:
-                            self._inject_headers(
-                                response, request.state.view_rate_limit
-                            )
-                    return response
-
-                return sync_wrapper
-
-        return decorator
+        pass
 
     def limit(
         self,
@@ -810,16 +428,7 @@ class Limiter:
         * **cost**: integer (or callable that returns one) which is the cost of a hit
         * **override_defaults**: whether to override the default limits (default: True)
         """
-        return self.__limit_decorator(
-            limit_value,
-            key_func,
-            per_method=per_method,
-            methods=methods,
-            error_message=error_message,
-            exempt_when=exempt_when,
-            cost=cost,
-            override_defaults=override_defaults,
-        )
+        pass
 
     def shared_limit(
         self,
@@ -851,36 +460,10 @@ class Limiter:
         * **cost**: integer (or callable that returns one) which is the cost of a hit
         * **override_defaults**: whether to override the default limits (default: True)
         """
-        return self.__limit_decorator(
-            limit_value,
-            key_func,
-            True,
-            scope,
-            error_message=error_message,
-            exempt_when=exempt_when,
-            cost=cost,
-            override_defaults=override_defaults,
-        )
+        pass
 
     def exempt(self, obj):
         """
         Decorator to mark a view as exempt from rate limits.
         """
-        name = "%s.%s" % (obj.__module__, obj.__name__)
-
-        self._exempt_routes.add(name)
-
-        if asyncio.iscoroutinefunction(obj):
-
-            @wraps(obj)
-            async def __async_inner(*a, **k):
-                return await obj(*a, **k)
-
-            return __async_inner
-        else:
-
-            @wraps(obj)
-            def __inner(*a, **k):
-                return obj(*a, **k)
-
-            return __inner
+        pass
